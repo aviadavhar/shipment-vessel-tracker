@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shipment &amp; Vessel Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/gridjs.umd.js" integrity="sha384-/XXDzxe4FsGiAe50i/u9pY/Vy/uX654MHB1xoc1BJNnH1WXHhqHga9g3q5tF4gj7" crossorigin="anonymous"></script>
+<link href="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/theme/mermaid.min.css" rel="stylesheet">
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 20px;
+    background: #f7f8fa;
+    color: #1f2430;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px 0; }
+  h2 { font-size: 15px; margin: 0 0 10px 0; color: #333; display:flex; align-items:center; justify-content:space-between; }
+  .subtitle { color: #667; font-size: 13px; margin-bottom: 18px; }
+  .banner {
+    background: #fff8e6; border: 1px solid #f0d891; color: #6b5a1e;
+    border-radius: 8px; padding: 10px 14px; font-size: 12.5px; margin-bottom: 18px; line-height: 1.5;
+  }
+  .cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px; margin-bottom: 22px;
+  }
+  .card {
+    background: #fff; border: 1px solid #e4e6ea; border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .card .num { font-size: 22px; font-weight: 700; }
+  .card .lbl { font-size: 12px; color: #667; margin-top: 2px; }
+  .panel {
+    background: #fff; border: 1px solid #e4e6ea; border-radius: 10px;
+    padding: 16px; margin-bottom: 22px;
+  }
+  #map-wrap { width: 100%; overflow: hidden; border-radius: 10px; box-shadow: inset 0 0 0 1px #d7e6f0; }
+  svg#map { width: 100%; height: auto; display: block; }
+  .land { fill: #e4e5d6; stroke: #b7bd9e; stroke-width: 0.7; }
+  .land-shadow { fill: #000; opacity: 0.05; }
+  .grat { stroke: #bcdcef; stroke-width: 0.4; }
+  .grat-label { font-size: 7.5px; fill: #8fb3c9; font-family: inherit; }
+  .route { stroke: #a7afba; stroke-width: 1.3; stroke-dasharray: 5 4; fill: none; }
+  .track { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .track-window { stroke: #1958a8; stroke-width: 2; }
+  .track-wellspring { stroke: #7a5fc2; stroke-width: 2; opacity: 0.85; }
+  .port-pin { fill: #33415c; }
+  .port-dot-inner { fill: #fff; }
+  .port-label { font-size: 10px; fill: #24344a; font-family: inherit; font-weight: 600; paint-order: stroke; stroke: #eaf3fa; stroke-width: 3; }
+  .ship-label { font-size: 10.5px; fill: #0b3d66; font-weight: 700; font-family: inherit; paint-order: stroke; stroke: #fff; stroke-width: 3; }
+  .ship-sub { font-size: 8.5px; fill: #45607a; font-family: inherit; paint-order: stroke; stroke: #fff; stroke-width: 3; }
+  .ship-model { font-size: 8.5px; fill: #33415c; font-family: inherit; font-style: italic; paint-order: stroke; stroke: #fff; stroke-width: 3; }
+  .ship-eta-lbl { font-size: 7.5px; fill: #8a5a12; font-family: inherit; paint-order: stroke; stroke: #fff; stroke-width: 3; }
+  .ship-eta { font-size: 13px; fill: #a3271f; font-weight: 800; font-family: inherit; paint-order: stroke; stroke: #fff; stroke-width: 3.5; }
+  .map-title { font-size: 12px; fill: #33415c; font-weight: 700; font-family: inherit; }
+  .map-caption { font-size: 9px; fill: #6b7f92; font-family: inherit; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: #556; margin-top: 10px; }
+  .legend span.sw { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:-1px; }
+  .legend span.ln { display:inline-block; width:16px; height:2px; margin-right:5px; vertical-align:2px; }
+  table.meta { border-collapse: collapse; width: 100%; font-size: 12.5px; margin-top: 6px;}
+  table.meta th, table.meta td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; }
+  table.meta th { color: #667; font-weight: 600; width: 30%; }
+  .vessel-card { border: 1px solid #e4e6ea; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .vessel-card .main { flex: 1; min-width: 260px; }
+  .vessel-card h3 { margin: 0 0 6px 0; font-size: 14px; }
+  .due-box { background: #fdeceb; border: 1px solid #f3c6c2; border-radius: 10px; padding: 10px 16px; text-align: center; min-width: 150px; }
+  .due-box .due-lbl { font-size: 10.5px; color: #a3271f; font-weight: 700; letter-spacing: 0.03em; }
+  .due-box .due-date { font-size: 24px; color: #a3271f; font-weight: 800; margin-top: 2px; }
+  .due-box .due-model { font-size: 11px; color: #6b5a1e; margin-top: 6px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-sea { background: #e3f0ff; color: #1958a8; }
+  .badge-port { background: #fdeecb; color: #8a5a12; }
+  .badge-transit { background: #e6f4ea; color: #1e7b3c; }
+  .badge-pickup { background: #f0e9fb; color: #5b3aa0; }
+  .badge-released { background: #e0f7f1; color: #0e7d63; }
+  .badge-notreleased { background: #fde8e8; color: #a3271f; }
+  #grid { font-size: 12.5px; }
+  footer { color: #99a; font-size: 11px; margin-top: 18px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<h1>Shipment &amp; Vessel Tracker</h1>
+<div class="subtitle">AXXUM Packaging Hessen &mdash; Open Import Orders to Ashdod &middot; source: Shipping details 090820261.xlsx</div>
+
+<div class="banner">
+  <strong>How this stays current:</strong> vessel positions are checked on a public AIS tracker (VesselFinder / MyShipTracking) by a scheduled browsing check and baked back into this page &mdash; they are <em>not</em> fetched live when you open it, since this sandboxed view can't call outside APIs directly. Look at "position checked" times below for freshness. Shipment/container details come from your Excel snapshot and refresh only when you share an updated file.
+</div>
+
+<div class="cards" id="cards"></div>
+
+<div class="panel">
+  <h2>Live vessel positions</h2>
+  <div id="map-wrap" style="position:relative;">
+    <svg id="map" viewBox="0 0 1000 640" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="inset-box" style="position:absolute; top:12px; right:12px; width:32%; max-width:280px; border:2px solid #fff; border-radius:8px; overflow:hidden; box-shadow:0 2px 10px rgba(20,40,60,0.35); background:#eaf6fb;">
+      <svg id="inset-map" viewBox="0 0 400 320" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:auto; display:block;"></svg>
+    </div>
+  </div>
+  <div class="legend">
+    <span><span class="sw" style="background:#1958a8"></span>YM WINDOW</span>
+    <span><span class="sw" style="background:#7a5fc2"></span>YM WELLSPRING</span>
+    <span><span class="sw" style="background:#33415c"></span>Port / waypoint</span>
+    <span><span class="ln" style="background:#1958a8"></span>Recent AIS track (actual)</span>
+    <span><span class="ln" style="background:#a7afba;background-image:repeating-linear-gradient(90deg,#a7afba 0 4px,transparent 4px 8px);"></span>Indicative onward route</span>
+  </div>
+  <div id="vessel-cards" style="margin-top:16px;"></div>
+</div>
+
+<div class="panel">
+  <h2>All open shipments (11)</h2>
+  <div id="grid"></div>
+</div>
+
+<footer id="footer"></footer>
+
+<script>
+// ---------- Data (from Shipping details 090820261.xlsx, "Open Import Orders & Files") ----------
+const SNAPSHOT_DATE = "2026-08-09";
+
+const PORTS = [
+  {key:"ASHDOD", label:"Ashdod, Israel", lat:31.7857, lon:34.6499},
+  {key:"DAMIETTA", label:"Damietta, Egypt", lat:31.4165, lon:31.8133},
+  {key:"PORT_KLANG", label:"Port Klang / Kuala Lumpur", lat:3.0, lon:101.4},
+  {key:"KOPER", label:"Koper, Slovenia", lat:45.5469, lon:13.7294},
+  {key:"CAPE_TOWN", label:"Cape of Good Hope", lat:-33.9249, lon:18.4241},
+  {key:"GIBRALTAR", label:"Gibraltar Strait", lat:36.14, lon:-5.35}
+];
+
+// Indicative Cape-of-Good-Hope onward route (Red Sea/Suez being avoided), current position -> Ashdod
+const ROUTE = [
+  [-18.74017, 13.99382], [-17, 20], [-15, 28], [-9.5, 33], [-5.35, 36.14],
+  [3, 37.5], [15, 36], [25, 34], [31.8133, 31.4165], [34.6499, 31.7857]
+];
+
+// Simplified landmass silhouettes [lon,lat] for context only (not survey-accurate)
+const LAND = {
+  africa: [
+    [-9.5,35.8],[-13,32.6],[-16.5,21],[-17.1,14.7],[-16.2,12.5],[-11,7],[-8,4.3],[-3,5],
+    [1.2,4.9],[3,6.4],[8.7,4.4],[9.3,1.7],[8.8,-0.7],[9,-4],[11.7,-4],[12,-6],[13,-13],
+    [12.3,-17],[13.4,-22.9],[16.5,-28.6],[18.4,-34.4],[20.9,-34.8],[26,-33.7],[32.9,-29],
+    [35,-24.1],[34.8,-19.6],[40.4,-14.5],[40.6,-10.5],[42,-5],[42.5,-0.4],[47.9,10.4],
+    [51.3,11.8],[45,11.4],[43.1,12.5],[42.6,15.6],[39.8,18.2],[37.2,22],[35.7,27.9],
+    [34.2,29],[32.8,31.2],[29.9,31.2],[25,32.2],[19.9,32.8],[11.5,33.2],[9.6,37],[2.9,36.8],
+    [-1,35.2],[-5.9,35.8],[-9.5,35.8]
+  ],
+  europe: [
+    [-9.3,43],[-9,38.7],[-7.4,37],[-5.4,36.1],[-3.5,36.7],[0,38.3],[2.2,41.4],[3,42.5],
+    [4.8,43.4],[7.6,43.7],[9.5,44],[10.3,42.4],[12.4,41.9],[15.9,38.1],[16.2,40.5],[15,40],
+    [18.5,40.1],[20,39.4],[21.6,38.2],[23.7,37.9],[24.9,39.5],[23,40.9],[19.9,39.9],
+    [19.4,41.9],[18.5,42.5],[16.4,43.5],
+    [13.7,45.6],[13.4,44.9],[9,44.4],[4.3,43.5],[3,43.4],[-1.6,43.5],[-2,43.3],[-9,43.5],[-9.3,43]
+  ],
+  arabia: [
+    [34.9,29.5],[36,29],[36.6,27.9],[35.7,25.9],[37.2,20.1],[39.1,16.3],[43.2,12.6],
+    [45.6,12],[51.6,12.1],[56.4,17.9],[58.9,22.5],[56.3,25.4],[52.6,26.7],[50.7,30],
+    [48,29.9],[47.6,29.9],[44.4,29.2],[39.1,31.7],[35.2,31.6],[34.9,29.5]
+  ],
+  southAsia: [
+    [68,24],[67,23.9],[68.2,21.5],[70.5,20.9],[72.6,21.7],[72.8,19.1],[73,16],[74.9,13.9],
+    [76.2,11.3],[77.6,8.1],[79.9,9.3],[80.3,13.1],[80.2,15.9],[83.3,17.7],[86.5,19.7],
+    [87.9,21.6],[88.3,22.4],[90.5,21.5],[92.3,21.5],[92.6,20.7],[93.2,19.4],[94.4,16.3],
+    [98.2,10],[98.4,7.9],[100.1,5.7],[103.4,1.4],[104.2,2.9],[103.5,4.5],[100.9,6.5],
+    [98.6,8.4],[99.8,9.7],[102.1,12.6],[104.9,10.9],[106.7,10.4],[108.9,11.5],[109.3,13.6],
+    [108.1,16],[107.9,20.3],[108.5,21.5],[109.5,23.5],[105,25],[97,27],[90,27],[80,29],
+    [72,25],[68,24]
+  ],
+  sumatraJava: [[95.3,5.5],[97.9,4],[99.2,1.8],[103.5,-2.9],[105.8,-5.9],[110.4,-7.8],
+                [114.6,-8.4],[115.6,-8.8],[109,-7.5],[103,-5],[98.5,1],[95.3,5.5]],
+  levant: [
+    [34.25,31.6],[34.65,31.79],[34.8,32.05],[34.95,32.5],[35.05,32.85],[35.2,33.27],
+    [35.5,33.9],[35.8,34.35],[35.95,34.6],[36.2,35.9],[36.15,36.2],[35.6,36.55],
+    [34.6,36.75],[32.8,36.35],[30.7,36.55],[29.1,36.9],[27.4,36.7],[26.6,38.2],
+    [26.9,39.5],[28,40.9],[26.1,40.2],[24.9,35.5],[29,31.2],[32.8,31.2],[34.25,31.6]
+  ],
+  cyprus: [[32.3,35.0],[33.0,35.35],[33.9,35.68],[34.55,35.4],[33.9,34.98],[33,34.63],[32.3,35.0]]
+};
+
+// Recent actual AIS position log (from MyShipTracking event history), oldest -> newest, [lon,lat]
+const TRACKS = {
+  "YM WINDOW": [
+    [-18.65748,13.14834],[-18.66037,13.17769],[-18.66478,13.22320],[-18.66501,13.22549],
+    [-18.66752,13.25150],[-18.70247,13.54271],[-18.70354,13.55555],[-18.70808,13.61123],
+    [-18.70840,13.61496],[-18.74017,13.99382]
+  ],
+  "YM WELLSPRING": [
+    [18.68177,-34.63314],[18.67176,-34.63019],[18.51193,-34.58358],[18.50295,-34.58114],
+    [17.93529,-34.12100],[17.86992,-34.05374],[17.85506,-34.03891],[17.82795,-34.00965],
+    [17.82752,-34.00914],[17.81241,-33.99256]
+  ]
+};
+
+const VESSELS = [
+  {
+    name: "YM WINDOW", imo: "9708435", mmsi: "563281900",
+    lat: 13.99382, lon: -18.74017,
+    speedKn: 16.7, courseDeg: 354.4,
+    area: "North Atlantic Ocean, off Senegal/Gambia",
+    navStatus: "Under way using engine",
+    destination: "Damietta, Egypt", etaDest: "2026-08-19 05:00 UTC",
+    positionCheckedAt: "2026-08-09 (checked live, ~1 min old at time of check)",
+    freshness: "fresh",
+    shipmentIcl: "411649",
+    source: "MyShipTracking / VesselFinder"
+  },
+  {
+    name: "YM WELLSPRING", imo: "9757230", mmsi: "636023250",
+    lat: -33.99256, lon: 17.81241,
+    speedKn: 13.6, courseDeg: 324.4,
+    area: "South Atlantic Ocean, near Cape Town",
+    navStatus: "Under way using engine",
+    destination: "Damietta, Egypt", etaDest: "2026-08-26 05:00 UTC",
+    positionCheckedAt: "2026-08-09 (checked live, last AIS report was Aug 6 â vessel currently out of terrestrial AIS coverage)",
+    freshness: "stale",
+    shipmentIcl: "413763",
+    source: "MyShipTracking / VesselFinder"
+  }
+];
+
+const STAGE = {
+  PICKUP: {label:"Awaiting Pickup", cls:"badge-pickup"},
+  TRANSIT: {label:"In Transit (pre-port)", cls:"badge-transit"},
+  SEA: {label:"At Sea (tracked)", cls:"badge-sea"},
+  PORT: {label:"At Ashdod Port", cls:"badge-port"},
+  NOTRELEASED: {label:"At Port â Not Released", cls:"badge-notreleased"},
+  RELEASED: {label:"Released / Delivered", cls:"badge-released"}
+};
+
+const SHIPMENTS = [
+  {icl:"360701", po:"DN 80765524 BL25001833", supplier:"AXXUM Packaging Hessen GmbH", pol:"MSC (Israel) Ltd", pod:"Ashdod", etd:null, eta:"2025-11-01", type:"LCL", model:"6040DV", vessel:null, container:null, bl:"208", project:"Project NEWREST", statusHe:"××©××× ×× ×× ××©×××, ×× ×©×××¨×¨, ××××¨ ××××× ×¡ ××××¡× ×××¤×©×", stage:"NOTRELEASED", freeDays:"2025-11-30"},
+  {icl:"364389", po:"80766661+80767030 BL25002553/2461", supplier:"AXXUM Packaging Hessen GmbH", pol:"MSC (Israel) Ltd", pod:"Ashdod", etd:null, eta:"2025-11-19", type:"LCL", model:"100100 / 7555Si", vessel:null, container:null, bl:"orian ???", project:"Project Ramim â PM's Office", statusHe:"××©××× ×©×××¨×¨, ××××× ×××¦×¢×ª ××××¨", stage:"RELEASED", freeDays:"2025-12-13"},
+  {icl:"370073", po:"80770333 +80770089 BL25002682 BL25002097", supplier:"AXXUM Packaging Hessen GmbH", pol:"Carmel Shipping (Admiral/006)", pod:"Ashdod", etd:null, eta:"2025-12-05", type:"FCL", model:"2 Ã 100100V, 6040DV", vessel:null, container:null, bl:null, project:"Project Ramim â El Al food factory", statusHe:"×××¨× ×××¨×¥", stage:"TRANSIT", freeDays:"2025-12-19"},
+  {icl:"368741", po:"86557697 BL25003724", supplier:"AXXUM Packaging Hessen GmbH", pol:"MSC GEMMA / GT543W", pod:"Ashdod", etd:null, eta:"2025-12-23", type:"LCL", model:"100100DV", vessel:null, container:null, bl:null, project:"Postal Project", statusHe:"×××¨× ×××¨×¥", stage:"TRANSIT", freeDays:"2026-01-21"},
+  {icl:"382021", po:"BL25002296", supplier:"AXXUM Packaging Hessen GmbH", pol:"MSC (Israel) Ltd", pod:"Ashdod", etd:null, eta:"2026-02-16", type:"LCL", model:"6040C Ã 2", vessel:null, container:null, bl:"To Ofer camp", project:"Project Ramim â El Al", statusHe:"×× ×× ××©×××", stage:"PORT", freeDays:"2026-02-19 (delivered)"},
+  {icl:"373604", po:"1272438, 80770443, DN 80771128", supplier:"AXXUM Packaging Hessen GmbH", pol:"ZIM America", pod:"Ashdod", etd:null, eta:"2026-02-09", type:"FCL", model:"100100DV Ã 3", vessel:null, container:null, bl:"To scrap, Tzrifin", project:"Project Ramim â El Al", statusHe:"×× ×× ××©×××", stage:"PORT", freeDays:"2026-02-18 (delivered to customer)"},
+  {icl:"386579", po:"80778081", supplier:"AXXUM Packaging Hessen GmbH", pol:"Koper", pod:"Ashdod", etd:null, eta:"2026-02-25", type:"LCL (ZIM)", model:"6040C Ã 2", vessel:null, container:null, bl:"To Ofer camp", project:"Project Ramim â El Al", statusHe:"×× ×× ××©×××", stage:"PORT", freeDays:null},
+  {icl:"407103", po:"DN 86603131", supplier:"AXXUM Packaging Hessen GmbH", pol:"Kuala Lumpur", pod:"Ashdod", etd:"2026-06-02", eta:"2026-07-04", type:"LCL", model:"6040DV", vessel:"MSC OSCAR", container:"MSDU6687609", bl:"7603017825", project:"PM's Office", statusHe:"×©×××¨×¨", stage:"RELEASED", freeDays:"2026-07-18", note:"Vessel confirmed to have already discharged â MSC OSCAR is now mid-voyage on an unrelated MersinâHong Kong leg."},
+  {icl:"411649", po:"DN 86607290", supplier:"AXXUM Packaging Hessen GmbH", pol:"Kuala Lumpur", pod:"Ashdod", etd:"2026-07-13", eta:"2026-08-22", type:"LCL", model:"2 Ã 6040DV", vessel:"YM WINDOW", container:"YMMU6124388", bl:"76030171855", project:"MoD / PM's Office", statusHe:"××¦×", stage:"SEA", freeDays:"2026-09-05"},
+  {icl:"413763", po:"DN 86609081-2", supplier:"AXXUM Packaging Hessen GmbH", pol:"Kuala Lumpur", pod:"Ashdod", etd:"2026-07-20", eta:"2026-08-29", type:"LCL", model:"3 Ã 7555Si", vessel:"YM WELLSPRING", container:null, bl:"76030173227", project:"Customs", statusHe:"××¦×", stage:"SEA", freeDays:"2026-09-12"},
+  {icl:"425156", po:"DN 80794820", supplier:"AXXUM Packaging Hessen GmbH", pol:"Koper", pod:"Ashdod", etd:null, eta:null, type:"LCL", model:"3 Ã 100100V", vessel:null, container:null, bl:null, project:"Inland haulage today 6.8", statusHe:"×××ª×× ××××¡××£", stage:"PICKUP", freeDays:null}
+];
+
+// ---------- Map ----------
+const VB_W = 1000, VB_H = 640, LON_MIN=-30, LON_MAX=130, LAT_MIN=-42, LAT_MAX=52;
+function proj([lon,lat]) {
+  const x = (lon - LON_MIN) / (LON_MAX - LON_MIN) * VB_W;
+  const y = (LAT_MAX - lat) / (LAT_MAX - LAT_MIN) * VB_H;
+  return [x,y];
+}
+function pathFor(points) {
+  return points.map((p,i) => (i===0?"M":"L") + proj(p).join(",")).join(" ") + " Z";
+}
+function lineFor(points) {
+  return points.map((p,i) => (i===0?"M":"L") + proj(p).join(",")).join(" ");
+}
+
+const svgNS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById("map");
+svg.setAttribute("viewBox", `0 0 ${VB_W} ${VB_H}`);
+
+// defs: ocean gradient + drop shadow
+const defs = document.createElementNS(svgNS, "defs");
+defs.innerHTML = `
+  <linearGradient id="ocean" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#eef7fb"/>
+    <stop offset="100%" stop-color="#d3e9f5"/>
+  </linearGradient>
+  <filter id="softshadow" x="-20%" y="-20%" width="140%" height="140%">
+    <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#1958a8" flood-opacity="0.35"/>
+  </filter>`;
+svg.appendChild(defs);
+
+const oceanRect = document.createElementNS(svgNS, "rect");
+oceanRect.setAttribute("x",0); oceanRect.setAttribute("y",0);
+oceanRect.setAttribute("width", VB_W); oceanRect.setAttribute("height", VB_H);
+oceanRect.setAttribute("fill", "url(#ocean)");
+oceanRect.setAttribute("rx", 10);
+svg.appendChild(oceanRect);
+
+// graticule + degree labels
+for (let lon = LON_MIN; lon <= LON_MAX; lon += 20) {
+  const [x1] = proj([lon, LAT_MAX]); const [x2] = proj([lon, LAT_MIN]);
+  const l = document.createElementNS(svgNS, "line");
+  l.setAttribute("x1", x1); l.setAttribute("y1", 6); l.setAttribute("x2", x2); l.setAttribute("y2", VB_H - 4);
+  l.setAttribute("class", "grat");
+  svg.appendChild(l);
+  const t = document.createElementNS(svgNS, "text");
+  t.setAttribute("x", x1 + 2); t.setAttribute("y", VB_H - 6);
+  t.setAttribute("class", "grat-label");
+  t.textContent = (lon >= 0 ? lon + "Â°E" : (-lon) + "Â°W");
+  svg.appendChild(t);
+}
+for (let lat = LAT_MIN; lat <= LAT_MAX; lat += 20) {
+  const [,y1] = proj([LON_MIN, lat]); const [,y2] = proj([LON_MAX, lat]);
+  const l = document.createElementNS(svgNS, "line");
+  l.setAttribute("x1", 4); l.setAttribute("y1", y1); l.setAttribute("x2", VB_W - 4); l.setAttribute("y2", y2);
+  l.setAttribute("class", "grat");
+  svg.appendChild(l);
+  const t = document.createElementNS(svgNS, "text");
+  t.setAttribute("x", 4); t.setAttribute("y", y1 - 2);
+  t.setAttribute("class", "grat-label");
+  t.textContent = (lat >= 0 ? lat + "Â°N" : (-lat) + "Â°S");
+  svg.appendChild(t);
+}
+
+// landmasses (soft shadow pass + fill pass, for a touch of depth)
+Object.values(LAND).forEach(pts => {
+  const shadow = document.createElementNS(svgNS, "path");
+  shadow.setAttribute("d", pathFor(pts));
+  shadow.setAttribute("class", "land-shadow");
+  shadow.setAttribute("transform", "translate(1.5,2)");
+  svg.appendChild(shadow);
+});
+Object.values(LAND).forEach(pts => {
+  const p = document.createElementNS(svgNS, "path");
+  p.setAttribute("d", pathFor(pts));
+  p.setAttribute("class", "land");
+  svg.appendChild(p);
+});
+
+// map title
+const mt = document.createElementNS(svgNS, "text");
+mt.setAttribute("x", 14); mt.setAttribute("y", 22);
+mt.setAttribute("class", "map-title");
+mt.textContent = "Asia â Ashdod, via the Cape of Good Hope";
+svg.appendChild(mt);
+const mc = document.createElementNS(svgNS, "text");
+mc.setAttribute("x", 14); mc.setAttribute("y", 36);
+mc.setAttribute("class", "map-caption");
+mc.textContent = "Both tracked vessels are routing around Africa rather than through the Red Sea / Suez Canal.";
+svg.appendChild(mc);
+
+// indicative onward route
+const routePath = document.createElementNS(svgNS, "path");
+routePath.setAttribute("d", lineFor(ROUTE));
+routePath.setAttribute("class", "route");
+svg.appendChild(routePath);
+
+// actual recent AIS tracks
+const trackClass = {"YM WINDOW":"track-window","YM WELLSPRING":"track-wellspring"};
+Object.entries(TRACKS).forEach(([name, pts]) => {
+  const p = document.createElementNS(svgNS, "path");
+  p.setAttribute("d", lineFor(pts));
+  p.setAttribute("class", "track " + trackClass[name]);
+  svg.appendChild(p);
+  // small dots along the way
+  pts.slice(0, -1).forEach(pt => {
+    const [x,y] = proj(pt);
+    const c = document.createElementNS(svgNS, "circle");
+    c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 1.6);
+    c.setAttribute("fill", name === "YM WINDOW" ? "#1958a8" : "#7a5fc2");
+    c.setAttribute("opacity", "0.55");
+    svg.appendChild(c);
+  });
+});
+
+// ports (pin-style marker)
+PORTS.forEach(pt => {
+  const [x,y] = proj([pt.lon, pt.lat]);
+  const pin = document.createElementNS(svgNS, "path");
+  pin.setAttribute("d", `M${x},${y+7} C${x-5.5},${y-1} ${x-4.5},${y-9} ${x},${y-9} C${x+4.5},${y-9} ${x+5.5},${y-1} ${x},${y+7} Z`);
+  pin.setAttribute("class", "port-pin");
+  svg.appendChild(pin);
+  const inner = document.createElementNS(svgNS, "circle");
+  inner.setAttribute("cx", x); inner.setAttribute("cy", y - 4.2); inner.setAttribute("r", 1.8);
+  inner.setAttribute("class", "port-dot-inner");
+  svg.appendChild(inner);
+  const t = document.createElementNS(svgNS, "text");
+  t.setAttribute("x", x + 7); t.setAttribute("y", y - 2);
+  t.setAttribute("class", "port-label");
+  t.textContent = pt.label;
+  svg.appendChild(t);
+});
+
+// ---------- Inset: Eastern Mediterranean / IsraelâTurkey detail ----------
+const IVB_W = 400, IVB_H = 320, ILON_MIN = 22, ILON_MAX = 42, ILAT_MIN = 29, ILAT_MAX = 42;
+function iproj([lon,lat]) {
+  return [(lon-ILON_MIN)/(ILON_MAX-ILON_MIN)*IVB_W, (ILAT_MAX-lat)/(ILAT_MAX-ILAT_MIN)*IVB_H];
+}
+function ipathFor(points){ return points.map((p,i)=>(i===0?"M":"L")+iproj(p).join(",")).join(" ")+" Z"; }
+function ilineFor(points){ return points.map((p,i)=>(i===0?"M":"L")+iproj(p).join(",")).join(" "); }
+
+const insetSvg = document.getElementById("inset-map");
+insetSvg.setAttribute("viewBox", `0 0 ${IVB_W} ${IVB_H}`);
+insetSvg.appendChild(document.createElementNS(svgNS,"rect"));
+insetSvg.lastChild.setAttribute("x",0); insetSvg.lastChild.setAttribute("y",0);
+insetSvg.lastChild.setAttribute("width",IVB_W); insetSvg.lastChild.setAttribute("height",IVB_H);
+insetSvg.lastChild.setAttribute("fill","url(#ocean)");
+
+["africa","europe","levant","cyprus","arabia"].forEach(key => {
+  const pts = LAND[key];
+  const p = document.createElementNS(svgNS, "path");
+  p.setAttribute("d", ipathFor(pts));
+  p.setAttribute("class", "land");
+  insetSvg.appendChild(p);
+});
+
+const iRoutePath = document.createElementNS(svgNS, "path");
+iRoutePath.setAttribute("d", ilineFor(ROUTE.filter(([lon]) => lon > 15)));
+iRoutePath.setAttribute("class", "route");
+insetSvg.appendChild(iRoutePath);
+
+["ASHDOD","DAMIETTA"].forEach(key => {
+  const pt = PORTS.find(p => p.key === key);
+  const [x,y] = iproj([pt.lon, pt.lat]);
+  const pin = document.createElementNS(svgNS, "path");
+  pin.setAttribute("d", `M${x},${y+9} C${x-7},${y-1.5} ${x-5.5},${y-12} ${x},${y-12} C${x+5.5},${y-12} ${x+7},${y-1.5} ${x},${y+9} Z`);
+  pin.setAttribute("class", "port-pin");
+  insetSvg.appendChild(pin);
+  const inner = document.createElementNS(svgNS, "circle");
+  inner.setAttribute("cx", x); inner.setAttribute("cy", y - 5.5); inner.setAttribute("r", 2.4);
+  inner.setAttribute("class", "port-dot-inner");
+  insetSvg.appendChild(inner);
+  const t = document.createElementNS(svgNS, "text");
+  t.setAttribute("x", x + 9); t.setAttribute("y", y - 2);
+  t.setAttribute("class", "port-label");
+  t.setAttribute("font-size", "12");
+  t.textContent = pt.label;
+  insetSvg.appendChild(t);
+});
+
+const it1 = document.createElementNS(svgNS, "text");
+it1.setAttribute("x", 10); it1.setAttribute("y", 20);
+it1.setAttribute("class", "map-title"); it1.setAttribute("font-size", "13");
+it1.textContent = "Eastern Mediterranean";
+insetSvg.appendChild(it1);
+const it2 = document.createElementNS(svgNS, "text");
+it2.setAttribute("x", 10); it2.setAttribute("y", IVB_H - 8);
+it2.setAttribute("class", "map-caption"); it2.setAttribute("font-size", "10");
+it2.textContent = "Israel Â· Cyprus Â· Turkey Â· Egypt (north coast)";
+insetSvg.appendChild(it2);
+
+// vessels (current position marker)
+VESSELS.forEach(v => {
+  const [x,y] = proj([v.lon, v.lat]);
+  const color = v.name === "YM WINDOW" ? "#1958a8" : "#7a5fc2";
+  const g = document.createElementNS(svgNS, "g");
+  g.setAttribute("filter", "url(#softshadow)");
+
+  const pulse = document.createElementNS(svgNS, "circle");
+  pulse.setAttribute("cx", x); pulse.setAttribute("cy", y); pulse.setAttribute("r", 9);
+  pulse.setAttribute("fill", color);
+  pulse.setAttribute("opacity", v.freshness === "fresh" ? "0.20" : "0.12");
+  g.appendChild(pulse);
+
+  const tri = document.createElementNS(svgNS, "polygon");
+  const r = v.courseDeg * Math.PI / 180;
+  const pts = [[0,-6.5],[4.2,5],[0,2],[-4.2,5]].map(([px,py]) => {
+    const rx = px*Math.cos(r) - py*Math.sin(r);
+    const ry = px*Math.sin(r) + py*Math.cos(r);
+    return `${x+rx},${y+ry}`;
+  }).join(" ");
+  tri.setAttribute("points", pts);
+  tri.setAttribute("fill", v.freshness === "fresh" ? color : "#9aa0ad");
+  tri.setAttribute("stroke", "#fff"); tri.setAttribute("stroke-width", "0.9");
+  g.appendChild(tri);
+
+  svg.appendChild(g);
+
+  const shp = SHIPMENTS.find(s => s.icl === v.shipmentIcl);
+
+  const label = document.createElementNS(svgNS, "text");
+  label.setAttribute("x", x + 8); label.setAttribute("y", y - 6);
+  label.setAttribute("class", "ship-label");
+  label.textContent = v.name;
+  svg.appendChild(label);
+
+  const sub = document.createElementNS(svgNS, "text");
+  sub.setAttribute("x", x + 8); sub.setAttribute("y", y + 6);
+  sub.setAttribute("class", "ship-sub");
+  sub.textContent = `${v.speedKn} kn Â· hdg ${v.courseDeg}Â° Â· ${v.freshness === "fresh" ? "live" : "last known"}`;
+  svg.appendChild(sub);
+
+  if (shp) {
+    const model = document.createElementNS(svgNS, "text");
+    model.setAttribute("x", x + 8); model.setAttribute("y", y + 17);
+    model.setAttribute("class", "ship-model");
+    model.textContent = `Model: ${shp.model} Â· ${[shp.container, shp.bl].filter(Boolean).join(" / ") || "no container #"}`;
+    svg.appendChild(model);
+
+    const etaLbl = document.createElementNS(svgNS, "text");
+    etaLbl.setAttribute("x", x + 8); etaLbl.setAttribute("y", y + 30);
+    etaLbl.setAttribute("class", "ship-eta-lbl");
+    etaLbl.textContent = "DUE AT ASHDOD";
+    svg.appendChild(etaLbl);
+
+    const eta = document.createElementNS(svgNS, "text");
+    eta.setAttribute("x", x + 8); eta.setAttribute("y", y + 45);
+    eta.setAttribute("class", "ship-eta");
+    eta.textContent = shp.eta || "TBD";
+    svg.appendChild(eta);
+  }
+});
+
+// ---------- Summary cards ----------
+const cardsEl = document.getElementById("cards");
+const counts = {};
+SHIPMENTS.forEach(s => counts[s.stage] = (counts[s.stage]||0) + 1);
+Object.keys(STAGE).forEach(key => {
+  const n = counts[key] || 0;
+  const div = document.createElement("div");
+  div.className = "card";
+  div.innerHTML = `<div class="num">${n}</div><div class="lbl">${STAGE[key].label}</div>`;
+  cardsEl.appendChild(div);
+});
+
+// ---------- Vessel detail cards ----------
+const vc = document.getElementById("vessel-cards");
+VESSELS.forEach(v => {
+  const shp = SHIPMENTS.find(s => s.icl === v.shipmentIcl);
+  const div = document.createElement("div");
+  div.className = "vessel-card";
+  div.innerHTML = `
+    <div class="main">
+    <h3>${v.name} <span class="badge ${v.freshness === 'fresh' ? 'badge-sea' : 'badge-transit'}">${v.freshness === 'fresh' ? 'Live position' : 'Last known position'}</span></h3>
+    <table class="meta">
+      <tr><th>Carrying shipment</th><td>ICL ${v.shipmentIcl} â PO ${shp ? shp.po : ''} (container ${shp && shp.container ? shp.container : 'â'})</td></tr>
+      <tr><th>Model</th><td>${shp ? shp.model : 'â'}</td></tr>
+      <tr><th>Position</th><td>${v.lat.toFixed(4)}Â°, ${v.lon.toFixed(4)}Â° &mdash; ${v.area}</td></tr>
+      <tr><th>Speed / heading</th><td>${v.speedKn} kn, course ${v.courseDeg}Â° &mdash; ${v.navStatus}</td></tr>
+      <tr><th>Next port (AIS-reported) / ETA there</th><td>${v.destination}, ETA ${v.etaDest}</td></tr>
+      <tr><th>Position checked</th><td>${v.positionCheckedAt}</td></tr>
+      <tr><th>Source</th><td>${v.source} (IMO ${v.imo}, MMSI ${v.mmsi})</td></tr>
+    </table>
+    </div>
+    <div class="due-box">
+      <div class="due-lbl">DUE AT ASHDOD</div>
+      <div class="due-date">${shp && shp.eta ? shp.eta : 'TBD'}</div>
+      <div class="due-model">${shp ? shp.model : ''}</div>
+    </div>`;
+  vc.appendChild(div);
+});
+
+// ---------- Table ----------
+new gridjs.Grid({
+  columns: ["ICL File", "Supplier", "Route", "ETD", "ETA (due Ashdod)", "Type", "Model", "Vessel", "Container / BL", "Stage", "Free-days deadline"],
+  data: SHIPMENTS.map(s => [
+    s.icl,
+    s.project,
+    `${s.pol} â ${s.pod}`,
+    s.etd || "â",
+    s.eta || "â",
+    s.type,
+    s.model || "â",
+    s.vessel || "â",
+    [s.container, s.bl].filter(Boolean).join(" / ") || "â",
+    STAGE[s.stage].label,
+    s.freeDays || "â"
+  ]),
+  sort: true,
+  search: true,
+  pagination: { limit: 15 },
+  style: { table: { fontSize: "12.5px" } }
+}).render(document.getElementById("grid"));
+
+document.getElementById("footer").innerHTML =
+  `Excel snapshot: ${SNAPSHOT_DATE}. Vessel positions last checked via a live browsing pass on ${SNAPSHOT_DATE}. ` +
+  `"At Sea" vessels are re-checked on a recurring schedule and this page is updated in place â reopen it later to see the latest baked-in snapshot. ` +
+  `Positions/ETAs are AIS/crew-reported and can be inaccurate near port or in low-coverage areas. Map is a simplified schematic, not a navigational chart.`;
+</script>
+</body>
+</html>
