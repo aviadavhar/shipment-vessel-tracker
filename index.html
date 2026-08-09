@@ -23,6 +23,20 @@
     background: #fff8e6; border: 1px solid #f0d891; color: #6b5a1e;
     border-radius: 8px; padding: 10px 14px; font-size: 12.5px; margin-bottom: 18px; line-height: 1.5;
   }
+  .pickup-alert {
+    background: #f0e9fb; border: 1.5px solid #b79ee8; color: #3d2a66;
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 18px;
+  }
+  .pickup-alert .pa-title {
+    font-size: 13.5px; font-weight: 800; color: #5b3aa0; display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+  }
+  .pickup-alert .pa-title .dot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #5b3aa0;
+  }
+  .pickup-alert table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  .pickup-alert th, .pickup-alert td { text-align: left; padding: 5px 10px 5px 0; }
+  .pickup-alert th { color: #5b3aa0; font-weight: 700; }
+  .pickup-alert tr + tr td, .pickup-alert tr + tr th { border-top: 1px solid #ddccf2; }
   .cards {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 10px; margin-bottom: 22px;
@@ -85,6 +99,11 @@
 
 <h1>Shipment &amp; Vessel Tracker</h1>
 <div class="subtitle">AXXUM Packaging Hessen &mdash; Open Import Orders to Ashdod &middot; source: Shipping details 090820261.xlsx</div>
+
+<div class="pickup-alert" id="pickup-alert" style="display:none;">
+  <div class="pa-title"><span class="dot"></span>Awaiting pickup &mdash; not yet collected</div>
+  <table id="pickup-alert-table"></table>
+</div>
 
 <div class="banner">
   <strong>How this stays current:</strong> vessel positions are checked on a public AIS tracker (VesselFinder / MyShipTracking) by a scheduled browsing check and baked back into this page &mdash; they are <em>not</em> fetched live when you open it, since this sandboxed view can't call outside APIs directly. Look at "position checked" times below for freshness. Shipment/container details come from your Excel snapshot and refresh only when you share an updated file.
@@ -506,6 +525,26 @@ Object.keys(STAGE).forEach(key => {
   div.innerHTML = `<div class="num">${n}</div><div class="lbl">${STAGE[key].label}</div>`;
   cardsEl.appendChild(div);
 });
+
+// ---------- Awaiting-pickup alert ----------
+const pickupShipments = SHIPMENTS.filter(s => s.stage === "PICKUP");
+if (pickupShipments.length) {
+  const alertBox = document.getElementById("pickup-alert");
+  alertBox.style.display = "block";
+  const tbl = document.getElementById("pickup-alert-table");
+  const rows = pickupShipments.map(s => `
+    <tr>
+      <td><strong>ICL ${s.icl}</strong></td>
+      <td>${s.project || s.supplier}</td>
+      <td>${s.pol} → ${s.pod}</td>
+      <td>${s.model || "—"}</td>
+      <td>${[s.container, s.bl].filter(Boolean).join(" / ") || "no container / BL #"}</td>
+      <td>${s.po || "—"}</td>
+    </tr>`).join("");
+  tbl.innerHTML = `
+    <tr><th>ICL File</th><th>Project / Supplier</th><th>Route</th><th>Model</th><th>Container / BL</th><th>PO</th></tr>
+    ${rows}`;
+}
 
 // ---------- Vessel detail cards ----------
 const vc = document.getElementById("vessel-cards");
